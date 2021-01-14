@@ -1,0 +1,3 @@
+http://yann.lecun.com/exdb/mnist/
+
+https://www.cnblogs.com/xianhan/p/9145966.html

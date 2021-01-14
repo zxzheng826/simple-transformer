@@ -132,8 +132,8 @@ class TransformerEncoder(nn.Module):
 class TransformerDecoderLayer(nn.Module):
     def __init__(self, model_dim, nhead, d_feedforward, dropout, acti):
         super().__init__()
-        self.self_attn = nn.MultiHeadAttention(model_dim, nhead, dropout=dropout)
-        self.multihead_attn = nn.MultiHeadAttention(model_dim, nhead, dropout=dropout)
+        self.self_attn = nn.MultiheadAttention(model_dim, nhead, dropout=dropout)
+        self.multihead_attn = nn.MultiheadAttention(model_dim, nhead, dropout=dropout)
 
         self.linear1 = nn.Linear(model_dim, d_feedforward)
         self.dropout = nn.Dropout(dropout)

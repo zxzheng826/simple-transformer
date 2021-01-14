@@ -10,7 +10,8 @@ class simple_transNet(nn.Module):
 
     def __init__(self, num_classes,
                  hidden_dim, nheads,
-                 num_encoder_layers, num_decoder_layers) -> None:
+                 num_encoder_layers, num_decoder_layers,
+                 device) -> None:
         super().__init__()
         self.backbone = backbone.simple_backbone(3, 128) 
         self.pos = position_encoding.build_position_encoding(hidden_dim)
@@ -19,20 +20,24 @@ class simple_transNet(nn.Module):
         self.query_embed = nn.Embedding(num_classes, hidden_dim)
         self.transformer = simple_transformer.Transformer(hidden_dim, nheads, num_encoder_layers,num_decoder_layers, 128, "relu", 0.1)
         self.linear_class = nn.Linear(hidden_dim, num_classes)
+        self.device = device
 
         
         self.class_embed = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self, inputs, mask):
+    def forward(self, inputs):
         """
         inputs shape should be : [batch_size, 3, H, W]
         mask shape should be : [batch_size, H, W]
         """
-        features = self.backbone(inputs)
+        b,c,h,w = inputs.shape()
+        mask = torch.zeros((b,h,w), dtype=torch.bool, device=self.device)
+        for img, m in zip(inputs, mask):
+            m[: img.shape[1], : img.shape[2]] = False
+        features, m = self.backbone(inputs, mask)
         pox = []
         for x in features.items():
             pox.append(self.pos(x).to(x.dtype))
-        m = F.interplate(mask[None].float(), size=features.shape[-2:]).to(torch.bool)[0]
 
         proj_f = self.input_proj(features)
         hs = self.transformer(src=proj_f, mask=m, query_embed=self.query_embed.weight, pos_embed=pox[-1])[0]

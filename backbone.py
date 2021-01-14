@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 class simple_backbone(nn.Module):
     def __init__(self, in_planes, out_planes) -> None:
@@ -17,24 +18,33 @@ class simple_backbone(nn.Module):
         self.norm3 = nn.BatchNorm2d(2**5, 1e-3, 1e-3)
         self.norm4 = nn.BatchNorm2d(2**6, 1e-3, 1e-3)
 
-    def forward(self, x) :
+    def forward(self, x, mask) :
         x = self.conv1(x)
         x = self.activation(x)
         x = self.norm1(x)
+        m = F.interpolate(mask[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
 
         x = self.conv2(x)
         x = self.activation(x)
         x = self.norm2(x)
+        m = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
+
         
         x = self.conv3(x)
         x = self.activation(x)
         x = self.norm3(x)
+        m = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
+
 
         x = self.conv4(x)
         x = self.activation(x)
         x = self.norm4(x)
+        m = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
+
 
         x = self.conv5(x)
         output = self.activation(x)
+        m = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
 
-        return output
+
+        return output, m
