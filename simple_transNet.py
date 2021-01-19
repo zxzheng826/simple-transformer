@@ -1,6 +1,6 @@
 import torch
-from torch import nn 
-from torch import functional as F
+from torch import nn, unsqueeze 
+from torch.nn import functional as F
 import backbone
 import simple_transformer
 import position_encoding
@@ -23,34 +23,39 @@ class simple_transNet(nn.Module):
         self.device = device
 
         
-        self.class_embed = nn.Linear(hidden_dim, num_classes)
+        self.class_embed = nn.Linear(hidden_dim, 1)
 
     def forward(self, inputs):
         """
         inputs shape should be : [batch_size, 3, H, W]
         mask shape should be : [batch_size, H, W]
         """
-        b,c,h,w = inputs.shape()
+        if(len(inputs.shape) == 3):
+            inputs = inputs.unsqueeze(1)
+            inputs = torch.stack((inputs[:,0,:,:],inputs[:,0,:,:],inputs[:,0,:,:]),dim=1)          
+        b,c,h,w = inputs.shape
         mask = torch.zeros((b,h,w), dtype=torch.bool, device=self.device)
         for img, m in zip(inputs, mask):
             m[: img.shape[1], : img.shape[2]] = False
         features, m = self.backbone(inputs, mask)
         pox = []
-        for x in features.items():
-            pox.append(self.pos(x).to(x.dtype))
-
+        # for x in features.items():
+        #     pox.append(self.pos(x).to(x.dtype))
+        pox = self.pos(features).to(features.dtype)
         proj_f = self.input_proj(features)
-        hs = self.transformer(src=proj_f, mask=m, query_embed=self.query_embed.weight, pos_embed=pox[-1])[0]
+        hs = self.transformer(src=proj_f, mask=m, query_embed=self.query_embed.weight, pos_embed=pox)[0]
+        hs = hs.squeeze(0)
+        classE = self.class_embed(hs)
+        outputs_logit = classE.squeeze()
+        result = post_process(outputs_logit)
+        return result
 
-        outputs_logit = self.class_embed(hs)
-        
-        return outputs_logit
-
+#input [1,b,class,1]
 def post_process( prob_logit):
     prob = F.softmax(prob_logit, -1)
     scores, labels = prob[..., :-1].max(-1)
-    results = [{'scores': s, 'labels': l} for s, l, b in zip(scores, labels)]
-    return results
+    results = [{'scores': s, 'labels': l} for s, l in zip(scores, labels)]
+    return results, prob_logit
 
 
 
